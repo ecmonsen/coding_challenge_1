@@ -34,23 +34,35 @@ sql_insert_etl_run = """
 insert into etl_runs (max_sample_ts) select max(ts) from samples
 """
 
+sql_get_results = "select * from view_client_results"
+
 with mysql.connector.connect(
-        user='meva', password='meva', host='127.0.0.1', port=3310, database='meva1') as conn:
+        user='meva', password='meva', host='db', port=3306, database='meva1') as conn:
+        # Replace the line above with this one to run this outside of a Docker image
+        #        user='meva', password='meva', host='127.0.0.1', port=3310, database='meva1') as conn:
     with conn.cursor() as cursor:
         try:
             # insert any new top parents
+            print("Adding root nodes")
             cursor.execute(sql_insert_roots)
             # insert new children (TODO: Loop)
+            print("Adding first descendants of root nodes")
             cursor.execute(sql_insert_children)
             while cursor.rowcount>0:
+                print("Adding more descendants of root nodes")
                 cursor.execute(sql_insert_children)
             # Insert last processed TS into etl_runs
             cursor.execute(sql_insert_etl_run)
-            conn.commit()
+
+            # For demonstration, select and show the results (this would not normally be an ETL component)
+            cursor.execute(sql_get_results)
+            result = cursor.fetchall()
+            print("\t".join(cursor.column_names))
+            print("\n".join(["\t".join([str(item) for item in list(r)]) for r in result]))
         except Exception as e:
             # Rolling back in case of error
             conn.rollback()
             # Really simple error messaging. Proper ETL would have forensic info, retries etc.
-            print("Error occurred. Rolling back.", sys.stderr)
-            print(str(e), sys.stderr)
+            print("Error occurred. Rolling back.", file=sys.stderr)
+            print(str(e), file=sys.stderr)
         # Closing the connection

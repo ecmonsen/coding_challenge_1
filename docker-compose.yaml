@@ -1,6 +1,7 @@
 version: '3.3'
 
 services:
+  # MySQL database
   db:
     image: mysql:8.0.26
     restart: always
@@ -10,13 +11,22 @@ services:
       MYSQL_PASSWORD: 'meva'
       MYSQL_ROOT_PASSWORD: 'root'
     ports:
-      # <Port exposed> : < MySQL Port running inside container>
       - '3310:3306'
     expose:
-      - 3310:3306
+      - 3306
     volumes:
       # Data storage on host machine
       - ./mysql_data:/var/lib/mysql
       # Startup scripts
-      - ./mysql_ddl:/docker-entrypoint-initdb.d
+      - ./ddl:/docker-entrypoint-initdb.d
+    healthcheck:
+        test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+        timeout: 2s
+        retries: 10
 
+  # Runs the Python script to do the ETL
+  etl:
+    depends_on:
+      db:
+        condition: service_healthy
+    build: .
